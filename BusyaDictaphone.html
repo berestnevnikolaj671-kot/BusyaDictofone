@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Busya Dictaphone</title>
+    <style>
+        /* ================= CSS VARIABLES & THEMING ================= */
+        :root {
+            --bg-color: #f8fafc;
+            --text-color: #0f172a;
+            --text-muted: #64748b;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            
+            --busya: #1DA1F2;
+            --busya-hover: #4AB3F4;
+            --busya-dark: #1A91DA;
+            --busya-light-bg: rgba(29, 161, 242, 0.1);
+            
+            --nav-bg: rgba(255, 255, 255, 0.9);
+            --nav-inactive: #94a3b8;
+            
+            --btn-secondary: #e2e8f0;
+            --btn-secondary-hover: #cbd5e1;
+            
+            --modal-overlay: rgba(15, 23, 42, 0.5);
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+        }
+
+        html.dark {
+            --bg-color: #0f172a;
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            
+            --nav-bg: rgba(15, 23, 42, 0.9);
+            --nav-inactive: #64748b;
+            
+            --btn-secondary: #334155;
+            --btn-secondary-hover: #475569;
+            
+            --modal-overlay: rgba(2, 6, 23, 0.7);
+            --danger-bg: rgba(239, 68, 68, 0.1);
+        }
+
+        /* ================= RESET & BASE ================= */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        a {
+            color: var(--busya);
+            text-decoration: none;
+        }
+
+        button {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-family: inherit;
+            color: inherit;
+            outline: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+        /* ================= LAYOUT ================= */
+        .app-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: none;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            overflow-y: auto;
+            padding-bottom: 90px; /* Space for nav */
+        }
+
+        .screen.active {
+            display: flex;
+            opacity: 1;
+            z-index: 10;
+        }
+
+        /* ================= RECORD SCREEN ================= */
+        #screen-record {
+            align-items: center;
+        }
+
+        .record-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 24px;
+        }
+
+        .recording-status {
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: var(--busya);
+            margin-bottom: 2rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .timer {
+            font-size: 3rem;
+            font-weight: 700;
+            font-family: monospace;
+            letter-spacing: 2px;
+            margin-bottom: 3rem;
+        }
+
+        .main-record-btn-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 192px; height: 192px;
+            margin-bottom: 3rem;
+        }
+
+        .main-record-btn {
+            position: relative;
+            z-index: 10;
+            width: 112px; height: 112px;
+            background-color: var(--busya);
+            color: white;
+            border-radius: 50%;
+            font-size: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(29, 161, 242, 0.3);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .main-record-btn:active { transform: scale(0.95); }
+
+        .record-actions {
+            display: flex;
+            gap: 2rem;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(16px);
+            transition: all 0.3s ease;
+        }
+
+        .action-btn {
+            width: 64px; height: 64px;
+            background-color: var(--btn-secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .action-btn:active { transform: scale(0.9); }
+
+        /* ================= HISTORY SCREEN ================= */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--nav-bg);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .header h2 { font-size: 1.125rem; }
+        .btn-clear {
+            color: var(--danger);
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .btn-clear:active { background: var(--danger-bg); }
+
+        .history-list {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .history-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .history-item-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .history-date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            text-transform: capitalize;
+        }
+
+        .history-badges {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .badge-time {
+            background: var(--busya-light-bg);
+            color: var(--busya);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            font-family: monospace;
+        }
+
+        .badge-format {
+            background: var(--btn-secondary);
+            color: var(--text-color);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .history-actions { display: flex; gap: 4px; }
+        .btn-icon {
+            padding: 8px;
+            font-size: 1.25rem;
+            transition: transform 0.2s;
+        }
+        .btn-icon:active { transform: scale(1.1); }
+
+        audio {
+            width: 100%;
+            height: 40px;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            margin-top: 40px;
+            display: none;
+        }
+        .empty-state.visible { display: block; }
+        .empty-icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+        /* ================= SETTINGS SCREEN ================= */
+        #screen-settings { padding: 24px; }
+        .settings-title { font-size: 1.875rem; margin-bottom: 2rem; font-weight: 700; }
+        
+        .card {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .contact-list { list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 0.875rem; }
+        .contact-item { display: flex; justify-content: space-between; align-items: center; }
+        .contact-label { color: var(--text-muted); }
+        .contact-value { font-weight: 500; }
+        .contact-divider {
+            border-top: 1px solid var(--border-color);
+            padding-top: 12px;
+            margin-top: 4px;
+        }
+
+        .section-label {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .btn-group { display: flex; gap: 8px; margin-bottom: 24px; }
+        .btn-select {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            background: var(--btn-secondary);
+            font-weight: 500;
+            transition: transform 0.1s, background 0.2s, color 0.2s;
+        }
+        .btn-select:active { transform: scale(0.95); }
+        .btn-select.active {
+            background: var(--busya);
+            color: white;
+        }
+
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .lang-btn {
+            padding: 12px;
+            border-radius: 12px;
+            background: var(--btn-secondary);
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s;
+            border: 4px solid transparent;
+        }
+        .lang-btn:active { transform: scale(0.95); }
+        .lang-btn.active { border-color: var(--busya); }
+
+        /* ================= FOOTER ================= */
+        .legal-footer {
+            text-align: center;
+            padding: 24px 16px 16px;
+            margin-top: auto; /* Pushes to bottom of scrollable area */
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            opacity: 0.7;
+        }
+        .legal-footer p { margin-bottom: 4px; }
+
+        /* ================= NAVIGATION ================= */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--nav-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+            z-index: 50;
+        }
+
+        .nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+            padding: 8px;
+            color: var(--nav-inactive);
+            transition: transform 0.1s, color 0.2s;
+        }
+        .nav-btn:active { transform: scale(0.9); }
+        .nav-btn.active { color: var(--busya); }
+        .nav-icon { font-size: 1.5rem; margin-bottom: 4px; }
+        .nav-label { font-size: 0.65rem; font-weight: 500; }
+
+        /* ================= MODAL ================= */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--modal-overlay);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 24px;
+            width: 100%;
+            max-width: 320px;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+
+        .modal-title { font-size: 1.25rem; font-weight: 700; text-align: center; margin-bottom: 16px; }
+        .audio-wrapper {
+            background: var(--btn-secondary);
+            padding: 16px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .format-selection { margin-bottom: 24px; }
+        .format-label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 8px; }
+        .format-btns { display: flex; gap: 8px; }
+        .btn-format {
+            flex: 1; padding: 8px; border-radius: 12px; font-weight: 500;
+            border: 2px solid var(--border-color); background: transparent; color: var(--text-color);
+            transition: all 0.2s;
+        }
+        .btn-format.active {
+            background: var(--busya); border-color: var(--busya); color: white;
+        }
+
+        .modal-actions { display: flex; gap: 12px; }
+        .btn-modal {
+            flex: 1; padding: 12px; border-radius: 12px; font-weight: 500;
+            transition: transform 0.1s;
+        }
+        .btn-modal:active { transform: scale(0.95); }
+        .btn-modal-cancel { background: var(--btn-secondary); }
+        .btn-modal-confirm { background: var(--busya); color: white; box-shadow: 0 4px 6px rgba(29, 161, 242, 0.3); }
+
+        /* ================= TOAST ================= */
+        .toast {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translate(-50%, -100px);
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            z-index: 200;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: none;
+        }
+        .toast.visible {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
+
+        /* ================= ANIMATIONS ================= */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            80% { transform: scale(1.4); opacity: 0; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .recording-pulse::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            background-color: var(--busya);
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+            z-index: -1;
+        }
+        @keyframes text-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .text-pulse { animation: text-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- ================= RECORD SCREEN ================= -->
+        <div id="screen-record" class="screen active">
+            <div class="record-content">
+                <div id="recording-status" class="recording-status">
+                    <span data-i18n="recordingProgress">идёт запись</span> <span class="text-pulse">...</span>
+                </div>
+
+                <div class="timer" id="record-timer">00:00</div>
+
+                <div class="main-record-btn-wrapper">
+                    <button id="btn-main-record" class="main-record-btn">▶️</button>
+                </div>
+
+                <div id="record-actions" class="record-actions">
+                    <button id="btn-cancel" class="action-btn" title="Отменить">❌</button>
+                    <button id="btn-save" class="action-btn" title="Сохранить">💾</button>
+                </div>
+            </div>
+            
+            <!-- FOOTER -->
+            <div class="legal-footer">
+                <p>By BusyaTM - protect your privacy</p>
+                <p>Данное приложение подчиняется законам Российской Федерации</p>
+                <p>Все упомянутые сторонние товарные знаки принадлежат их законным владельцам</p>
+            </div>
+        </div>
+
+        <!-- ================= HISTORY SCREEN ================= -->
+        <div id="screen-history" class="screen">
+            <div class="header">
+                <button class="btn-clear btn-clear-history" data-i18n="clearAll">Очистить</button>
+                <h2 data-i18n="history">История</h2>
+                <button class="btn-clear btn-clear-history" data-i18n="clearAll">Очистить</button>
+            </div>
+            
+            <div id="history-list" class="history-list">
+                <!-- Items injected here -->
+            </div>
+            <div id="history-empty" class="empty-state">
+                <div class="empty-icon">📜</div>
+                <div data-i18n="noRecords">Записей пока нет</div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="legal-footer">
+                <p>By BusyaTM - protect your privacy</p>
+                <p>Данное приложение подчиняется законам Российской Федерации</p>
+                <p>Все упомянутые сторонние товарные знаки принадлежат их законным владельцам</p>
+            </div>
+        </div>
+
+        <!-- ================= SETTINGS SCREEN ================= -->
+        <div id="screen-settings" class="screen">
+            <div style="padding: 24px; flex: 1;">
+                <h2 class="settings-title" data-i18n="settings">Настройки</h2>
+
+                <!-- Contacts -->
+                <div class="card">
+                    <h3 class="card-title"><span>📞</span> <span data-i18n="contacts">Контакты</span></h3>
+                    <ul class="contact-list">
+                        <li class="contact-item">
+                            <span class="contact-label">Email</span>
+                            <a href="mailto:berestnevnikolaj671@gmail.com" class="contact-value">berestnevnikolaj671@gmail.com</a>
+                        </li>
+                        <li class="contact-item">
+                            <span class="contact-label">SMS</span>
+                            <a href="sms:+79102563060" class="contact-value" style="color: inherit">+7 910 256 30 60</a>
+                        </li>
+                        <li class="contact-item">
+                            <span class="contact-label">MAX</span>
+                            <a href="tel:+79202419565" class="contact-value" style="color: inherit">+7 920 241 95 65</a>
+                        </li>
+                        <li class="contact-item contact-divider">
+                            <span class="contact-label">GitHub</span>
+                            <a href="https://github.com/berestnevnikolaj671-kot/BusyaDictofone" target="_blank" class="contact-value" style="overflow: hidden; text-overflow: ellipsis; max-width: 150px; white-space: nowrap;">berestnevnikolaj671-kot/...</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Theme & Language -->
+                <div class="card">
+                    <div>
+                        <h3 class="section-label" data-i18n="theme">Тема</h3>
+                        <div class="btn-group">
+                            <button id="btn-theme-light" class="btn-select" data-i18n="light">Светлая</button>
+                            <button id="btn-theme-dark" class="btn-select" data-i18n="dark">Темная</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="section-label" data-i18n="language">Язык</h3>
+                        <div class="grid-4">
+                            <button class="lang-btn" data-lang="ru">🇷🇺</button>
+                            <button class="lang-btn" data-lang="en">🇬🇧</button>
+                            <button class="lang-btn" data-lang="zh">🇨🇳</button>
+                            <button class="lang-btn" data-lang="ar">🇸🇦</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="legal-footer">
+                <p>By BusyaTM - protect your privacy</p>
+                <p>Данное приложение подчиняется законам Российской Федерации</p>
+                <p>Все упомянутые сторонние товарные знаки принадлежат их законным владельцам</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= PREVIEW / SAVE MODAL ================= -->
+    <div id="modal-preview" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title" data-i18n="previewTitle">Прослушать запись</h3>
+            
+            <div class="audio-wrapper">
+                <audio id="audio-preview" controls></audio>
+            </div>
+
+            <div class="format-selection">
+                <label class="format-label" data-i18n="selectFormat">Формат сохранения:</label>
+                <div class="format-btns">
+                    <button class="btn-format active" data-format="mp4">MP4</button>
+                    <button class="btn-format" data-format="WEBP">WEBP</button>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-preview-cancel" class="btn-modal btn-modal-cancel" data-i18n="cancel">Отмена</button>
+                <button id="btn-preview-confirm" class="btn-modal btn-modal-confirm" data-i18n="confirmSave">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= FOOTER NAVIGATION ================= -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" data-target="screen-record">
+            <span class="nav-icon">🎙️</span>
+            <span class="nav-label" data-i18n="navRecord">Запись</span>
+        </button>
+        <button class="nav-btn" data-target="screen-history">
+            <span class="nav-icon">📜</span>
+            <span class="nav-label" data-i18n="navHistory">История</span>
+        </button>
+        <button class="nav-btn" data-target="screen-settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label" data-i18n="navSettings">Настройки</span>
+        </button>
+    </nav>
+
+    <!-- UI Message Toast -->
+    <div id="toast" class="toast">Сообщение</div>
+
+    <!-- ================= JAVASCRIPT ================= -->
+    <script>
+        // Dictionary for i18n
+        const dict = {
+            ru: {
+                recordingProgress: "идёт запись",
+                previewTitle: "Прослушать запись",
+                selectFormat: "Формат сохранения:",
+                cancel: "Отмена",
+                confirmSave: "Сохранить",
+                history: "История",
+                clearAll: "Очистить",
+                noRecords: "Записей пока нет",
+                settings: "Настройки",
+                contacts: "Контакты",
+                theme: "Тема",
+                light: "Светлая",
+                dark: "Темная",
+                language: "Язык",
+                navRecord: "Запись",
+                navHistory: "История",
+                navSettings: "Настройки",
+                msgDenied: "Нет доступа к микрофону",
+                msgDeleted: "Запись удалена",
+                msgCleared: "История очищена"
+            },
+            en: {
+                recordingProgress: "recording",
+                previewTitle: "Preview recording",
+                selectFormat: "Save format:",
+                cancel: "Cancel",
+                confirmSave: "Save",
+                history: "History",
+                clearAll: "Clear",
+                noRecords: "No records yet",
+                settings: "Settings",
+                contacts: "Contacts",
+                theme: "Theme",
+                light: "Light",
+                dark: "Dark",
+                language: "Language",
+                navRecord: "Record",
+                navHistory: "History",
+                navSettings: "Settings",
+                msgDenied: "Microphone access denied",
+                msgDeleted: "Recording deleted",
+                msgCleared: "History cleared"
+            },
+            zh: {
+                recordingProgress: "正在录音",
+                previewTitle: "预览录音",
+                selectFormat: "保存格式：",
+                cancel: "取消",
+                confirmSave: "保存",
+                history: "历史",
+                clearAll: "清除",
+                noRecords: "暂无记录",
+                settings: "设置",
+                contacts: "联系方式",
+                theme: "主题",
+                light: "浅色",
+                dark: "深色",
+                language: "语言",
+                navRecord: "录音",
+                navHistory: "历史",
+                navSettings: "设置",
+                msgDenied: "麦克风访问被拒绝",
+                msgDeleted: "录音已删除",
+                msgCleared: "历史记录已清除"
+            },
+            ar: {
+                recordingProgress: "جاري التسجيل",
+                previewTitle: "معاينة التسجيل",
+                selectFormat: "تنسيق الحفظ:",
+                cancel: "إلغاء",
+                confirmSave: "حفظ",
+                history: "السجل",
+                clearAll: "مسح",
+                noRecords: "لا توجد سجلات بعد",
+                settings: "الإعدادات",
+                contacts: "جهات الاتصال",
+                theme: "المظهر",
+                light: "فاتح",
+                dark: "داكن",
+                language: "اللغة",
+                navRecord: "تسجيل",
+                navHistory: "السجل",
+                navSettings: "الإعدادات",
+                msgDenied: "تم رفض الوصول إلى الميكروفون",
+                msgDeleted: "تم حذف التسجيل",
+                msgCleared: "تم مسح السجل"
+            }
+        };
+
+        // State
+        let currentLang = localStorage.getItem('busya_lang') || 'ru';
+        let isDarkMode = localStorage.getItem('busya_theme') === 'dark' || (!('busya_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        let selectedFormat = 'mp4';
+        
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let isPaused = false;
+        let recordTimerInterval;
+        let recordSeconds = 0;
+        let currentAudioBlob = null;
+        let activePreviewAudio = null;
+
+        // DB State
+        const dbName = "BusyaDictaphoneLocalDB";
+        let db;
+
+        // UI Elements
+        const mainRecordBtn = document.getElementById('btn-main-record');
+        const recordActions = document.getElementById('record-actions');
+        const recordingStatus = document.getElementById('recording-status');
+        const recordTimerEl = document.getElementById('record-timer');
+        const modalPreview = document.getElementById('modal-preview');
+        const audioPreview = document.getElementById('audio-preview');
+
+        function initApp() {
+            applyTheme(isDarkMode);
+            applyLanguage(currentLang);
+            initDatabase().then(loadHistory);
+            setupEventListeners();
+        }
+
+        function showToast(key) {
+            const toast = document.getElementById('toast');
+            toast.innerText = dict[currentLang][key] || key;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 3000);
+        }
+
+        function applyTheme(dark) {
+            isDarkMode = dark;
+            localStorage.setItem('busya_theme', dark ? 'dark' : 'light');
+            if (dark) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('btn-theme-dark').classList.add('active');
+                document.getElementById('btn-theme-light').classList.remove('active');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('btn-theme-light').classList.add('active');
+                document.getElementById('btn-theme-dark').classList.remove('active');
+            }
+        }
+
+        function applyLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('busya_lang', lang);
+            
+            document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[lang][key]) {
+                    el.innerText = dict[lang][key];
+                }
+            });
+
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                if (btn.getAttribute('data-lang') === lang) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            if(db) loadHistory();
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function initDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 1);
+                
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    if (!db.objectStoreNames.contains('recordings')) {
+                        const store = db.createObjectStore('recordings', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('timestamp', 'timestamp', { unique: false });
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve();
+                };
+
+                request.onerror = (event) => {
+                    console.error("IndexedDB error:", event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        function saveRecordingToDB(blob, duration, format) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['recordings'], 'readwrite');
+                const store = transaction.objectStore('recordings');
+                
+                const record = {
+                    timestamp: Date.now(),
+                    duration: duration,
+                    blob: blob,
+                    format: format,
+                    hiddenFromHistory: false
+                };
+                
+                const request = store.add(record);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function getRecordingsFromDB() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['recordings'], 'readonly');
+                const store = transaction.objectStore('recordings');
+                const request = store.getAll();
+                
+                request.onsuccess = () => {
+                    const data = request.result.sort((a, b) => b.timestamp - a.timestamp);
+                    resolve(data);
+                };
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function deleteRecordingFromDB(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['recordings'], 'readwrite');
+                const store = transaction.objectStore('recordings');
+                const request = store.delete(id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function hideRecordingFromHistory(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['recordings'], 'readwrite');
+                const store = transaction.objectStore('recordings');
+                const getReq = store.get(id);
+                
+                getReq.onsuccess = () => {
+                    const data = getReq.result;
+                    if(data) {
+                        data.hiddenFromHistory = true;
+                        const putReq = store.put(data);
+                        putReq.onsuccess = () => resolve();
+                        putReq.onerror = () => reject(putReq.error);
+                    } else resolve();
+                };
+                getReq.onerror = () => reject(getReq.error);
+            });
+        }
+
+        function clearAllHistory() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['recordings'], 'readwrite');
+                const store = transaction.objectStore('recordings');
+                const req = store.getAll();
+                req.onsuccess = () => {
+                    let updates = 0;
+                    const items = req.result;
+                    if(items.length === 0) resolve();
+                    items.forEach(item => {
+                        item.hiddenFromHistory = true;
+                        store.put(item).onsuccess = () => {
+                            updates++;
+                            if (updates === items.length) resolve();
+                        };
+                    });
+                };
+            });
+        }
+
+        async function toggleRecording() {
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    recordSeconds = 0;
+                    recordTimerEl.innerText = formatTime(recordSeconds);
+                    
+                    mediaRecorder.ondataavailable = e => {
+                        if (e.data.size > 0) audioChunks.push(e.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        stream.getTracks().forEach(track => track.stop());
+                        const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                        currentAudioBlob = new Blob(audioChunks, { type: mimeType });
+                        showPreviewModal();
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    isPaused = false;
+                    
+                    mainRecordBtn.innerHTML = '⏸️';
+                    mainRecordBtn.classList.add('recording-pulse');
+                    recordingStatus.style.opacity = '1';
+                    recordActions.style.opacity = '1';
+                    recordActions.style.pointerEvents = 'auto';
+                    recordActions.style.transform = 'translateY(0)';
+                    
+                    recordTimerInterval = setInterval(() => {
+                        recordSeconds++;
+                        recordTimerEl.innerText = formatTime(recordSeconds);
+                    }, 1000);
+
+                } catch (err) {
+                    console.error("Mic access denied:", err);
+                    showToast('msgDenied');
+                }
+            } else {
+                if (isPaused) {
+                    mediaRecorder.resume();
+                    isPaused = false;
+                    mainRecordBtn.innerHTML = '⏸️';
+                    mainRecordBtn.classList.add('recording-pulse');
+                    recordingStatus.style.opacity = '1';
+                } else {
+                    mediaRecorder.pause();
+                    isPaused = true;
+                    mainRecordBtn.innerHTML = '▶️';
+                    mainRecordBtn.classList.remove('recording-pulse');
+                    recordingStatus.style.opacity = '0.5';
+                }
+            }
+        }
+
+        function cancelRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.onstop = null; 
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                mediaRecorder.stop();
+                resetRecordingUI();
+            }
+        }
+
+        function saveRecordingTrigger() {
+            if (mediaRecorder && isRecording) {
+                if(!isPaused) {
+                    mainRecordBtn.classList.remove('recording-pulse');
+                }
+                mediaRecorder.stop(); 
+                clearInterval(recordTimerInterval);
+            }
+        }
+
+        function resetRecordingUI() {
+            isRecording = false;
+            isPaused = false;
+            clearInterval(recordTimerInterval);
+            recordSeconds = 0;
+            recordTimerEl.innerText = '00:00';
+            mainRecordBtn.innerHTML = '▶️';
+            mainRecordBtn.classList.remove('recording-pulse');
+            recordingStatus.style.opacity = '0';
+            recordActions.style.opacity = '0';
+            recordActions.style.pointerEvents = 'none';
+            recordActions.style.transform = 'translateY(16px)';
+        }
+
+        function showPreviewModal() {
+            if(activePreviewAudio) {
+                URL.revokeObjectURL(activePreviewAudio);
+            }
+            activePreviewAudio = URL.createObjectURL(currentAudioBlob);
+            audioPreview.src = activePreviewAudio;
+            
+            modalPreview.classList.add('active');
+        }
+
+        function hidePreviewModal() {
+            modalPreview.classList.remove('active');
+            audioPreview.pause();
+            setTimeout(() => {
+                resetRecordingUI();
+            }, 300);
+        }
+
+        function selectFormat(format) {
+            selectedFormat = format;
+            document.querySelectorAll('.btn-format').forEach(btn => {
+                if(btn.getAttribute('data-format') === format) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        async function confirmSave() {
+            await saveRecordingToDB(currentAudioBlob, recordSeconds, selectedFormat);
+            hidePreviewModal();
+            loadHistory();
+            showToast('confirmSave'); 
+        }
+
+        async function loadHistory() {
+            const listEl = document.getElementById('history-list');
+            const emptyEl = document.getElementById('history-empty');
+            
+            try {
+                const recordings = await getRecordingsFromDB();
+                const visibleRecordings = recordings.filter(r => !r.hiddenFromHistory);
+                
+                listEl.innerHTML = '';
+
+                if (visibleRecordings.length === 0) {
+                    emptyEl.classList.add('visible');
+                    return;
+                }
+                
+                emptyEl.classList.remove('visible');
+
+                const localeMap = { 'ru': 'ru-RU', 'en': 'en-US', 'zh': 'zh-CN', 'ar': 'ar-SA' };
+                const dtLocale = localeMap[currentLang] || 'ru-RU';
+
+                visibleRecordings.forEach(rec => {
+                    const dateObj = new Date(rec.timestamp);
+                    const dateOptions = { 
+                        year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', 
+                        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                    };
+                    const formattedDate = new Intl.DateTimeFormat(dtLocale, dateOptions).format(dateObj);
+                    
+                    const url = URL.createObjectURL(rec.blob);
+                    
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    
+                    item.innerHTML = `
+                        <div class="history-item-top">
+                            <div>
+                                <p class="history-date">${formattedDate}</p>
+                                <div class="history-badges">
+                                    <span class="badge-time">${formatTime(rec.duration)}</span>
+                                    <span class="badge-format">${rec.format}</span>
+                                </div>
+                            </div>
+                            <div class="history-actions">
+                                <button class="btn-icon btn-del-history" title="Удалить из истории" data-id="${rec.id}">❌</button>
+                                <button class="btn-icon btn-del-memory" title="Удалить навсегда" data-id="${rec.id}">🗑️</button>
+                            </div>
+                        </div>
+                        <audio controls src="${url}"></audio>
+                    `;
+                    
+                    listEl.appendChild(item);
+                });
+
+                document.querySelectorAll('.btn-del-history').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = Number(e.currentTarget.getAttribute('data-id'));
+                        await hideRecordingFromHistory(id);
+                        loadHistory();
+                    });
+                });
+                
+                document.querySelectorAll('.btn-del-memory').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = Number(e.currentTarget.getAttribute('data-id'));
+                        await deleteRecordingFromDB(id);
+                        loadHistory();
+                        showToast('msgDeleted');
+                    });
+                });
+
+            } catch (err) {
+                console.error("Error loading history:", err);
+            }
+        }
+
+        function setupEventListeners() {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const targetId = e.currentTarget.getAttribute('data-target');
+                    
+                    document.querySelectorAll('.screen').forEach(s => {
+                        s.style.opacity = '0';
+                        setTimeout(() => s.classList.remove('active'), 150);
+                    });
+
+                    document.querySelectorAll('.nav-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    e.currentTarget.classList.add('active');
+
+                    setTimeout(() => {
+                        const targetScreen = document.getElementById(targetId);
+                        targetScreen.classList.add('active');
+                        void targetScreen.offsetWidth; 
+                        targetScreen.style.opacity = '1';
+                        
+                        if(targetId === 'screen-history') loadHistory();
+                    }, 150);
+                });
+            });
+
+            mainRecordBtn.addEventListener('click', toggleRecording);
+            document.getElementById('btn-cancel').addEventListener('click', cancelRecording);
+            document.getElementById('btn-save').addEventListener('click', saveRecordingTrigger);
+
+            document.getElementById('btn-preview-cancel').addEventListener('click', hidePreviewModal);
+            document.getElementById('btn-preview-confirm').addEventListener('click', confirmSave);
+            document.querySelectorAll('.btn-format').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    selectFormat(e.currentTarget.getAttribute('data-format'));
+                });
+            });
+
+            document.querySelectorAll('.btn-clear-history').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    await clearAllHistory();
+                    loadHistory();
+                    showToast('msgCleared');
+                });
+            });
+
+            document.getElementById('btn-theme-light').addEventListener('click', () => applyTheme(false));
+            document.getElementById('btn-theme-dark').addEventListener('click', () => applyTheme(true));
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    applyLanguage(e.currentTarget.getAttribute('data-lang'));
+                });
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
+
+    </script>
+</body>
+</html>
